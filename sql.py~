@@ -1,4 +1,3 @@
-#encoding=utf8
 import MySQLdb
 import json
 import sys
@@ -94,7 +93,7 @@ class dbHandler:
                 print "no such file to download"
                 return
             tmpfile=tempfile.TemporaryFile()
-            tmpfile.write(self.cur.fetchone()[0])
+            tmpfile.write(self.cur.fetchone())
             tmpfile.seek(0)
             return tmpfile
 
