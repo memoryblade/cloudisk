@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#encoding=utf8
 from socket import *
 from OpenSSL import *
 from time import ctime
@@ -34,7 +35,7 @@ class regSEQ(threading.Thread):
     def __init__(self):
         self.BUFSIZ=1024
         threading.Thread.__init__(self)
-        pass
+ 
 
     def upFile(self):
         filename=self.fhead['filename'].split('\\')[-1]
@@ -52,24 +53,26 @@ class regSEQ(threading.Thread):
             if restsize == 0: break
         tmpfile.seek(0)
 
-        self.dbhandler.uploadfile(filename,float(self.fhead['time']),self.userID,self.fhead['MD5'],tmpfile.read())
+        self.dbhandler.uploadfile(filename,filesize,float(self.fhead['time']),self.userID,self.fhead['MD5'],tmpfile.read())
 
         tmpfile.close()
 
     def delFile(self):
-       pass 
-
-    def listFile(self):
-        pass
-
+        filename=self.fhead['filename'].split('\\')[-1]
+        self.dbhandler.deletefile(filename,self.userID)
+        
+        
     def run(self):
-        myssl = mySSL("192.168.137.125",8001)
+        myssl = mySSL("",8001)
+        package=0
         while True:
-            print 'waiting for connection...'
+            print '(reg)waiting for connection...'
             self.ClientConn, fromaddr = myssl.SerConn.accept()
-            print '...connected from:', fromaddr
+            print '(reg)...connected from:', fromaddr
             
             #data=ClientConn.recv(1024)
+            print "Reg package No: %d" % package
+            package+=1
             self.fhead = json.loads(self.ClientConn.recv(1024))
 
             self.dbhandler=dbHandler()
@@ -84,9 +87,8 @@ class regSEQ(threading.Thread):
                 self.upFile()
             elif seqType == 'del':
                 self.delFile()
-            elif seqType == 'list':
-                self.listFile()
 
+            self.ClientConn.close()
             #ClientConn.send('[%s] %s' % (ctime(),data))
             #ClientConn.close()
 
@@ -94,9 +96,48 @@ class downSEQ(threading.Thread):
     def __init__(self):
         self.BUFSIZ=1024
         threading.Thread.__init__(self)
-        pass
+
+    def listFile(self):
+        data=self.dbhandler.listfile(self.userID)
+        self.ClientConn.send(data)
+
+    def downFile(self):
+        filename=self.fhead['filename'].split('\\')[-1]
+        tmpfile=self.dbhandler.downfile(filename,self.userID)
+        while True:
+            filedata=tmpfile.read(self.BUFSIZ)
+            if not filedata:
+                break
+            self.ClientConn.send(filedata)
+
+        print "file download complete: %s" % filename
+        tmpfile.close()
+
     def run(self):
-        pass
+        myssl = mySSL("",8002)
+        print '(down)waiting for connection...'
+        self.ClientConn, fromaddr = myssl.SerConn.accept()
+        print '(down)...connected from:', fromaddr
+        package=0
+        while True:
+        
+            #data=ClientConn.recv(1024)
+            print "Down package No: %d" % package
+            package+=1
+            self.fhead = json.loads(self.ClientConn.recv(1024))
+
+            self.dbhandler=dbHandler()
+            self.userID=self.dbhandler.isUserValid(self.fhead['username'],self.fhead['password'])
+            if not self.userID:
+                print 'Check your password!'
+                continue
+
+            seqType = self.fhead['type']
+            if seqType == 'list':
+                self.listFile()
+            elif seqType == 'down':
+                self.downFile()
+     
 
 def main():
     regseq=regSEQ()
