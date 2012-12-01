@@ -27,32 +27,13 @@ class dbHandler:
         else:
             return int(self.cur.fetchone()[0])
 
-    def listfile(self,username):
-        try:
-            userID=self.isUserValid(username)
-
-            if not userID:
-                return None
-
-            count = self.cur.execute('select filename, time from filetable where userID = %d' % userID)
-            if count == 0:
-                return None
-            rows = self.cur.fetchall()
-            return dict([(row[0],row[1]) for row in rows])
-        except self.conn.Error,e:
-            print 'Error %d: %s' % (e.args[0],e.args[1])
-            sys.exit(1)
-
-    def uploadfile(self,filename,filesize,time,userID,MD5,content):
+    def uploadfile(self,filename,filesize,time,userID,MD5,tempfile):
         try:
             count=self.cur.execute('select time, MD5 from filetable where userID = %s and filename = %s',(userID,filename))
             if not count:
-                query='insert into filetable (filename,filesize,time,userID,MD5,content) values ("%s",%d,%f,"%s","%s",%%s)' % (filename,filesize,time,userID,MD5)
+                query='insert into filetable (filename,filesize,time,userID,MD5,content) values ("%s",%d,%f,"%s","%s",load_file("%s"))' % (filename,filesize,time,userID,MD5,tempfile)
                 print query
-                f=open("test.jpg",'wb')
-                f.write(content)
-                f.close()
-                self.cur.execute(query,content)
+                self.cur.execute(query)
                 self.dbcommit()
                 return
             else:
@@ -60,8 +41,8 @@ class dbHandler:
                 if MD5==dbMD5:
                     pass
                 elif time-dbtime>0.01:
-                    query='update filetable set MD5="%s", content="%%s",time=%f,filesize=%d where userID="%s" and filename="%s"' % (MD5,time,filesize,userID,filename)
-                    self.cur.execute(query,content)
+                    query='update filetable set MD5="%s", content=load_file("%s"),time=%f,filesize=%d where userID="%s" and filename="%s"' % (MD5,tempfile,time,filesize,userID,filename)
+                    self.cur.execute(query)
                     self.dbcommit()
 
         except self.conn.Error,e:
