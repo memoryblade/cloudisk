@@ -6,7 +6,7 @@ import tempfile
 
 class dbHandler:
     def __init__(self):
-        self.conn=MySQLdb.connect(host='localhost',user='root',passwd='901030',db='cloudisk')
+        self.conn=MySQLdb.connect(host='localhost',user='root',passwd='901030',db='cloudisk',charset='utf8')
         self.cur=self.conn.cursor()
 
     def __del__(self):
